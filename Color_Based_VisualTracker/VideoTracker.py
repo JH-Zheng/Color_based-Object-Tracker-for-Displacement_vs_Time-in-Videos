@@ -38,7 +38,7 @@ class VideoTracker:
                         origin_position = current_position
 
                     displacement_pixels = np.sqrt((current_position[0] - origin_position[0])**2 + (current_position[1] - origin_position[1])**2)
-                    displacement_cm = displacement_pixels / self./Users/jiahaozh/Downloads/Test.MOVpixel_to_cm_ratio
+                    displacement_cm = displacement_pixels / self.pixel_to_cm_ratio
                     displacements.append(displacement_cm)
                     time_sec = cap.get(cv2.CAP_PROP_POS_MSEC) / 1000.0  # Convert ms to s
                     times.append(time_sec)
