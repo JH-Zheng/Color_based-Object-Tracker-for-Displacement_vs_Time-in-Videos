@@ -1,70 +1,69 @@
 import cv2
 import numpy as np
 
-# Global variables
-drawing = False  # True if mouse is pressed
-ix, iy = -1, -1  # x and y coordinates for the start of the line
-ex, ey = -1, -1  # x and y coordinates for the end of the line
-line_drawn = False
-frame_copy = None
+class PixelToCmRatio:
+    def __init__(self, video_path):
+        self.video_path = video_path
+        self.drawing = False
+        self.line_drawn = False
+        self.ix, self.iy = -1, -1
+        self.ex, self.ey = -1, -1
+        self.frame_copy = None
 
-# Mouse callback function
-def draw_line(event, x, y, flags, param):
-    global ix, iy, ex, ey, drawing, line_drawn, frame, frame_copy
+    def draw_line(self, event, x, y, flags, param):
+        if event == cv2.EVENT_LBUTTONDOWN:
+            if not self.drawing:
+                self.drawing = True
+                self.ix, self.iy = x, y
+            else:
+                self.drawing = False
+                self.line_drawn = True
+                self.ex, self.ey = x, y
+                cv2.line(self.frame, (self.ix, self.iy), (self.ex, self.ey), (0, 255, 0), 2)
 
-    if event == cv2.EVENT_LBUTTONDOWN:
-        if not drawing:
-            drawing = True
-            ix, iy = x, y
-        else:
-            drawing = False
-            line_drawn = True
-            ex, ey = x, y
-            cv2.line(frame, (ix, iy), (ex, ey), (0, 255, 0), 2)
+        elif event == cv2.EVENT_MOUSEMOVE:
+            if self.drawing:
+                temp_frame = self.frame_copy.copy()
+                cv2.line(temp_frame, (self.ix, self.iy), (x, y), (0, 255, 0), 2)
+                cv2.imshow('image', temp_frame)
 
-    elif event == cv2.EVENT_MOUSEMOVE:
-        if drawing:
-            temp_frame = frame_copy.copy()
-            cv2.line(temp_frame, (ix, iy), (x, y), (0, 255, 0), 2)
-            cv2.imshow('image', temp_frame)
+    def get_ratio(self):
+        cap = cv2.VideoCapture(self.video_path)
+        ret, self.frame = cap.read()
 
-def get_pixel_to_cm_ratio(video_path):
-    global frame, frame_copy, line_drawn, ix, iy, ex, ey
-    cap = cv2.VideoCapture(video_path)
-    ret, frame = cap.read()
+        if not ret:
+            print("Failed to capture video")
+            cap.release()
+            return None
 
-    if not ret:
-        print("Failed to capture video")
+        self.frame_copy = self.frame.copy()
+        cv2.namedWindow('image')
+        cv2.setMouseCallback('image', self.draw_line)
+
+        while True:
+            cv2.imshow('image', self.frame)
+
+            k = cv2.waitKey(1) & 0xFF
+            if k == ord('e'):  # 'e' to erase and redraw the line
+                self.frame = self.frame_copy.copy()
+                self.line_drawn = False
+            elif k == ord('c') and self.line_drawn:  # 'c' to confirm and exit
+                break
+
         cap.release()
-        return None
+        cv2.destroyAllWindows()
 
-    frame_copy = frame.copy()
-    cv2.namedWindow('image')
-    cv2.setMouseCallback('image', draw_line)
+        if not self.line_drawn:
+            return None
 
-    while True:
-        cv2.imshow('image', frame)
-
-        k = cv2.waitKey(1) & 0xFF
-        if k == ord('e'):  # 'e' to erase and redraw the line
-            frame = frame_copy.copy()
-            line_drawn = False
-        elif k == ord('c') and line_drawn:  # 'c' to confirm and exit
-            break
-
-    cap.release()
-    cv2.destroyAllWindows()
-
-    if not line_drawn:
-        return None
-
-    # Calculate the pixels/cm ratio
-    pixels_length = np.sqrt((ix - ex)**2 + (iy - ey)**2)
-    return pixels_length / 10.0  # 10.0 cm
-
+        # Calculate the pixels/cm ratio
+        pixels_length = np.sqrt((self.ix - self.ex)**2 + (self.iy - self.ey)**2)
+        return pixels_length / 10.0  # Assuming 10.0 cm as the known length
 
 if __name__ == "__main__":
-    video_path = '/Users/jiahaozh/Downloads/IMG_7141.MOV'
-    ratio = get_pixel_to_cm_ratio(video_path)
+    print("Draw a line of known length (10 cm) on the image. Press 'e' to erase and redraw the line. Press 'c' to confirm.")
+    video_path = input("Enter video path for Pixel-to-Cm Ratio calculation: ")
+    pixel_to_cm_ratio = PixelToCmRatio(video_path)
+    ratio = pixel_to_cm_ratio.get_ratio()
     if ratio is not None:
         print(f"Pixel-to-cm ratio: {ratio} pixels/cm")

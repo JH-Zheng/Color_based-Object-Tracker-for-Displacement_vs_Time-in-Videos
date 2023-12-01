@@ -1,68 +1,51 @@
-import cv2
 import numpy as np
-import matplotlib.pyplot as plt
-import csv
+from Color2Track import HSVPicker
+from Pixel2CmRatio import PixelToCmRatio
+from VideoTracker import VideoTracker
 
-def track_object(video_path, lower_hsv, upper_hsv, pixel_to_cm_ratio):
-    cap = cv2.VideoCapture(video_path)
-    origin_position = None
-    displacements = []
-    times = []
+def main():
+    video_path = input("Enter the video path: ")
 
-    frame_number = 0
+    # HSV range selection
+    hsv_choice = input("Type 'skip' to skip or press Enter to access HSV picker: ")
+    if hsv_choice.lower() != 'skip':
+        print("'space' to pause/unpause, 'q' to quit")
+        hsv_picker = HSVPicker(video_path)
+        lower_hsv, upper_hsv = hsv_picker.pick_hsv()
+    else:
+        # Enter previously known HSV values
+        lower_hsv_values = input("Enter Lower HSV values as H,S,V (e.g. 0,0,0): ").split(',')
+        upper_hsv_values = input("Enter Upper HSV values as H,S,V (e.g. 179,255,255): ").split(',')
+        lower_hsv = np.array([int(val) for val in lower_hsv_values])
+        upper_hsv = np.array([int(val) for val in upper_hsv_values])
+    
+    if lower_hsv is not None and upper_hsv is not None:
+        print(f"Lower HSV: {lower_hsv}, Upper HSV: {upper_hsv}")
 
-    while cap.isOpened():
-        ret, frame = cap.read()
-        if not ret:
-            break
+    # Pixel-to-cm ratio selection
+    ratio_choice = input("Type 'skip' to skip or press Enter to access Pixel-to-cm Ratio picker: ")
+    if ratio_choice.lower() != 'skip':
+        print("Draw a line of known length (10 cm) on the image. Press 'e' to erase and redraw the line. Press 'c' to confirm.")
+        pixel_to_cm_ratio_picker = PixelToCmRatio(video_path)
+        pixel_to_cm_ratio = pixel_to_cm_ratio_picker.get_ratio()
+    else:
+        # Enter previously known pixel-to-cm ratio
+        pixel_to_cm_ratio = float(input("Enter the Pixel-to-cm Ratio (e.g. 75.4): "))
 
-        hsv = cv2.cvtColor(frame, cv2.COLOR_BGR2HSV)
-        mask = cv2.inRange(hsv, lower_hsv, upper_hsv)
-        contours, _ = cv2.findContours(mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+    if pixel_to_cm_ratio is not None:
+        print(f"Pixel-to-cm ratio: {pixel_to_cm_ratio} pixels/cm")
 
-        if contours:
-            largest_contour = max(contours, key=cv2.contourArea)
-            M = cv2.moments(largest_contour)
-            if M['m00'] != 0:
-                cx = int(M['m10'] / M['m00'])
-                cy = int(M['m01'] / M['m00'])
-                current_position = (cx, cy)
+    # Video tracking
+    tracker = VideoTracker(video_path, /Users/jiahaozh/Downloads/Test.MOV, upper_hsv, pixel_to_cm_ratio)
+    times, displacements = tracker.track_object()
 
-                if frame_number == 0:
-                    origin_position = current_position
+    print("Data ready to be saved to CSV file and plotted.")
+    tracker.plot_data(times, displacements)
 
-                displacement_pixels = np.sqrt((current_position[0] - origin_position[0])**2 + (current_position[1] - origin_position[1])**2)
-                displacement_cm = displacement_pixels / pixel_to_cm_ratio
-                displacements.append(displacement_cm)
-                time_sec = cap.get(cv2.CAP_PROP_POS_MSEC) / 1000.0  # Convert ms to s
-                times.append(time_sec)
-
-        frame_number += 1
-
-    cap.release()
-    return times, displacements
-
-def save_to_csv(times, displacements, filename="displacement_data.csv"):
-    with open(filename, 'w', newline='') as file:
-        writer = csv.writer(file)
-        writer.writerow(["Time (ms)", "Displacement (cm)"])
-        for time, displacement in zip(times, displacements):
-            writer.writerow([time, displacement])
-    print(f"Data saved to {filename}")
-
-def plot_data(times, displacements):
-    plt.plot(times, displacements)
-    plt.xlabel('Time (ms)')
-    plt.ylabel('Displacement (cm)')
-    plt.title('Displacement vs Time')
-    plt.show()
+    csv_filename = input("Enter the filename for the CSV (Default: 'displacement_data.csv'): ")
+    if not csv_filename:
+        csv_filename = "displacement_data.csv"
+    tracker.save_to_csv(times, displacements, filename=csv_filename)
 
 if __name__ == "__main__":
-    video_path = '/Users/jiahaozh/Downloads/IMG_7141.MOV'
-    lower_hsv = np.array([0, 109, 99])  # Replace with HSV values [H_low, S_low, V_low]
-    upper_hsv = np.array([30, 255, 255])  # Replace with HSV values [H_high, S_high, V_high]
-    pixel_to_cm_ratio = 76 # pixel/cm
-
-    times, displacements = track_object(video_path, lower_hsv, upper_hsv, pixel_to_cm_ratio)
-    save_to_csv(times, displacements, filename="displacement_data.csv")
-    plot_data(times, displacements)
+    main()
