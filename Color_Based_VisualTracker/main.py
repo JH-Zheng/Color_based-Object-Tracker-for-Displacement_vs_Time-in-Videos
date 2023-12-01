@@ -36,7 +36,7 @@ def main():
         print(f"Pixel-to-cm ratio: {pixel_to_cm_ratio} pixels/cm")
 
     # Video tracking
-    tracker = VideoTracker(video_path, /Users/jiahaozh/Downloads/Test.MOV, upper_hsv, pixel_to_cm_ratio)
+    tracker = VideoTracker(video_path, lower_hsv, upper_hsv, pixel_to_cm_ratio)
     times, displacements = tracker.track_object()
 
     print("Data ready to be saved to CSV file and plotted.")
